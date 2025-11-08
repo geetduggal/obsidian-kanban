@@ -235,7 +235,7 @@ We welcome contributions! Whether it's:
 
 ```bash
 # Clone the repository
-git clone https://github.com/geetduggal/kanban-plus
+git clone https://github.com/geetduggal/obsidian-kanban
 cd kanban-plus
 
 # Install dependencies
@@ -252,9 +252,6 @@ npm run build
 
 This fork periodically syncs with the original repository to incorporate improvements. If you're contributing core functionality improvements, consider contributing to the original project as well to benefit the entire community.
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
@@ -281,3 +278,4 @@ We encourage users to support both projects and choose the version that best fit
 ---
 
 **Made for the Obsidian community**
+
