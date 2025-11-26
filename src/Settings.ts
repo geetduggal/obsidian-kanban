@@ -92,6 +92,7 @@ export interface KanbanSettings {
   'time-format'?: string;
   'time-trigger'?: string;
   'enable-copy-to-calendar'?: boolean;
+  'add-calendar-hashtag'?: boolean;
   'place-settings-at-beginning'?: boolean;
   'associated-files'?: string[];
 }
@@ -143,6 +144,7 @@ export const settingKeyLookup: Set<keyof KanbanSettings> = new Set([
   'time-format',
   'time-trigger',
   'enable-copy-to-calendar',
+  'add-calendar-hashtag',
   'place-settings-at-beginning',
   'associated-files',
 ]);
@@ -1389,6 +1391,53 @@ export class SettingsManager {
 
                 this.applySettingsUpdate({
                   $unset: ['enable-copy-to-calendar'],
+                });
+              });
+          });
+      });
+
+    new Setting(contentEl)
+      .setName(t('Add calendar hashtag to card'))
+      .setDesc(
+        t(
+          'When enabled, automatically adds a hashtag matching the calendar name to cards when copying to calendar. This enables automatic color association with your calendar tags.'
+        )
+      )
+      .then((setting) => {
+        let toggleComponent: ToggleComponent;
+
+        setting
+          .addToggle((toggle) => {
+            toggleComponent = toggle;
+
+            const [value, globalValue] = this.getSetting('add-calendar-hashtag', local);
+
+            if (value !== undefined) {
+              toggle.setValue(value as boolean);
+            } else if (globalValue !== undefined) {
+              toggle.setValue(globalValue as boolean);
+            } else {
+              // default to false (disabled)
+              toggle.setValue(false);
+            }
+
+            toggle.onChange((newValue) => {
+              this.applySettingsUpdate({
+                'add-calendar-hashtag': {
+                  $set: newValue,
+                },
+              });
+            });
+          })
+          .addExtraButton((b) => {
+            b.setIcon('lucide-rotate-ccw')
+              .setTooltip(t('Reset to default'))
+              .onClick(() => {
+                const [, globalValue] = this.getSetting('add-calendar-hashtag', local);
+                toggleComponent.setValue((globalValue as boolean) ?? false);
+
+                this.applySettingsUpdate({
+                  $unset: ['add-calendar-hashtag'],
                 });
               });
           });

@@ -994,10 +994,13 @@ completed: null
     try {
       await stateManager.app.vault.create(fullPath, fileContent);
       new Notice(`Created calendar event: ${fileName}`);
-      
-      // Add calendar hashtag to the card if it doesn't already have one
-      await addCalendarHashtagToCard(stateManager, item, calendar, path, boardModifiers);
-      
+
+      // Add calendar hashtag to the card if the setting is enabled
+      const addHashtag = stateManager.getSetting('add-calendar-hashtag');
+      if (addHashtag) {
+        await addCalendarHashtagToCard(stateManager, item, calendar, path, boardModifiers);
+      }
+
       return true;
     } catch (fileError) {
       console.error('Error creating file:', fileError);

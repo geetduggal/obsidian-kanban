@@ -150,6 +150,9 @@ const en = {
   'Enable Copy to Calendar': 'Enable Copy to Calendar',
   'Enables the "Copy to calendar" feature in card context menus. Integrates with the Full Calendar plugin\'s "Full note" mode. Requires Full Calendar plugin to be installed and configured.\n\nConfiguration file location: .obsidian/plugins/obsidian-full-calendar/data.json':
     'Enables the "Copy to calendar" feature in card context menus. Integrates with the Full Calendar plugin\'s "Full note" mode. Requires Full Calendar plugin to be installed and configured.\n\nConfiguration file location: .obsidian/plugins/obsidian-full-calendar/data.json',
+  'Add calendar hashtag to card': 'Add calendar hashtag to card',
+  'When enabled, automatically adds a hashtag matching the calendar name to cards when copying to calendar. This enables automatic color association with your calendar tags.':
+    'When enabled, automatically adds a hashtag matching the calendar name to cards when copying to calendar. This enables automatic color association with your calendar tags.',
   'Board Header Buttons': 'Board Header Buttons',
   'Calendar: first day of week': 'Calendar: first day of week',
   'Override which day is used as the start of the week':
