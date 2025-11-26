@@ -47,33 +47,38 @@ This philosophy powers the enhanced features: cross-file movement and calendar i
 
 The original Kanban plugin features, plus:
 
-#### 🔗 **Cross-File Card Movement**
+#### 🔗 **Advanced Card & List Movement**
 
-- Associate multiple Kanban files with any board
-- Move cards between different files seamlessly
-- Unified workflow management across projects
-- Smart metadata injection - automatically adds kanban metadata to associated files
+- **Ad-hoc card moves**: Move any card to any file in your vault with fuzzy search
+- **List transfer**: Move entire lists between files with merge or separate options
+- **Associated file movement**: Pre-configured quick access to frequently used boards
+- **Smart list selection**: Choose destination list or create new ones on the fly
+- **Unified workflow management** across projects and contexts
+- **Smart metadata injection**: Automatically adds kanban metadata to target files
+
+#### 📱 **Mobile & Tablet Optimizations**
+
+- **Flat menu structure** on mobile devices (phones and tablets)
+- **iPad-friendly interactions**: All submenus accessible with simple taps
+- **No nested submenus** on touch devices for better usability
+- **Consistent experience** across all mobile platforms
 
 #### 📅 **Advanced Calendar Integration**
 
-- Hashtag-based color display - cards automatically show calendar colors based on hashtags
-- One-click copy to Full Calendar with automatic hashtag addition
-- Dynamic color resolution - zero configuration required
-- Smart text contrast - readable text on any background color
-- Emoji color indicators in calendar picker for visual clarity
-- Clean calendar filenames - hashtags stripped from event names
+- **Hashtag-based color display**: Cards automatically show calendar colors based on hashtags
+- **One-click copy to Full Calendar** with configurable hashtag behavior
+- **Optional hashtag tagging**: Control whether calendar names are added as hashtags (disabled by default)
+- **Dynamic color resolution**: Zero configuration required
+- **Smart text contrast**: Readable text on any background color
+- **Emoji color indicators** in calendar picker for visual clarity
+- **Clean calendar filenames**: Hashtags stripped from event names
 
 #### ⚙️ **Advanced Configuration Options**
 
-- Flexible settings placement - board settings at file beginning or end
-- Associated file management through intuitive file picker UI
-- Enhanced settings inheritance from global to board level
-
-#### 🎨 **Enhanced Visual Experience**
-
-- Hashtag-driven card colors with instant visual feedback
-- Zero-configuration color management - works with existing Full Calendar settings
-- Smart contrast algorithms for optimal readability across all themes
+- **Flexible settings placement**: Board settings at file beginning or end
+- **Associated file management**: Intuitive file picker UI for linked boards
+- **Calendar hashtag control**: Toggle automatic hashtag addition on/off
+- **Enhanced settings inheritance**: From global to board level
 
 ### 🔄 **Original Kanban Features**
 
@@ -112,12 +117,33 @@ The original Kanban plugin features, plus:
 
 ### Moving Cards Between Files
 
+#### Quick Move to Associated Files
+
 1. Right-click on any card
-2. Select **"Move to list"**
+2. Select **"Move to list"** submenu (or tap directly on mobile)
 3. Choose from:
    - **Local lists**: Current board lanes
-   - **File lists**: `filename/list-name` format
+   - **Associated file lists**: `filename > list-name` format
 4. Card moves instantly with all content preserved
+
+#### Ad-Hoc Move to Any File
+
+1. Right-click on any card
+2. Select **"Move to any file..."**
+3. Type to search for any file in your vault (fuzzy search)
+4. Select target file
+5. Choose destination list or create "Inbox" list
+6. Card moves with all metadata intact
+
+### Moving Entire Lists Between Files
+
+1. Click the three-dot menu on any list header
+2. Select **"Move list to file..."**
+3. Type to search for target file
+4. Choose to:
+   - **Merge into existing list**: Adds all cards to selected list
+   - **Keep as separate list**: Creates new list with same name
+5. List and all cards move atomically
 
 ## 📅 Calendar Integration
 
@@ -138,12 +164,17 @@ Cards automatically display calendar colors when they contain hashtags matching 
 ### Copy to Calendar
 
 1. Right-click any card
-2. Select **"Copy to calendar"**
+2. Select **"Copy to calendar"** (or tap directly on mobile)
 3. Choose destination calendar with emoji color indicators
 4. Card appears in calendar as all-day event
-5. If missing, calendar hashtag is automatically added to card
-6. Card background instantly updates to match calendar color
+5. Optionally, enable **"Add calendar hashtag to card"** in board settings to:
+   - Automatically add calendar name as hashtag
+   - Enable automatic color association
+   - Keep cards visually linked to their calendars
+6. Card background updates to match calendar color (if hashtag added)
 7. Drag in Full Calendar to set specific times
+
+**Note**: Calendar hashtag tagging is **disabled by default**. Enable it in Board Settings → Integrations → "Add calendar hashtag to card"
 
 ## 🛠️ Advanced Configuration
 
