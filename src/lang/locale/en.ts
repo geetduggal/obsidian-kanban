@@ -244,6 +244,7 @@ const en = {
   'Move to top': 'Move to top',
   'Move to bottom': 'Move to bottom',
   'Move to list': 'Move to list',
+  'Move to any file...': 'Move to any file...',
   'Copy to calendar': 'Copy to calendar',
 
   // components/Lane/LaneForm.tsx
@@ -276,6 +277,7 @@ const en = {
   'Sort by date': 'Sort by date',
   'Sort by tags': 'Sort by tags',
   'Sort by': 'Sort by',
+  'Move list to file...': 'Move list to file...',
 
   // components/helpers/renderMarkdown.ts
   'Unable to find': 'Unable to find',

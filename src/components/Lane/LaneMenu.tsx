@@ -1,11 +1,12 @@
 import update from 'immutability-helper';
-import { Menu, Platform } from 'obsidian';
+import { Menu, Platform, TFile } from 'obsidian';
 import { Dispatch, StateUpdater, useContext, useEffect, useMemo, useState } from 'preact/hooks';
 import { Path } from 'src/dnd/types';
 import { defaultSort } from 'src/helpers/util';
 import { t } from 'src/lang/helpers';
 import { lableToName } from 'src/parsers/helpers/inlineMetadata';
 
+import { FileSuggestModal, LaneSuggestModal } from '../FileSuggest/FileSuggestModal';
 import { anyToString } from '../Item/MetadataTable';
 import { KanbanContext } from '../context';
 import { c, generateInstanceId } from '../helpers';
@@ -60,6 +61,170 @@ export function ConfirmAction({ action, cancel, onAction, lane }: ConfirmActionP
   );
 }
 
+async function handleMoveLaneToFile(
+  stateManager: any,
+  boardModifiers: any,
+  lane: Lane,
+  path: Path
+) {
+  const app = stateManager.app;
+
+  const fileSuggest = new FileSuggestModal(app, async (targetFile) => {
+    try {
+      console.log('Moving lane to file:', targetFile.path);
+      console.log('Lane data:', lane.data.title, 'Cards:', lane.children.length);
+
+      const content = await app.vault.read(targetFile);
+      const lines = content.split('\n');
+
+      // Parse for existing lists
+      const existingLanes: string[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('## ') && !trimmed.includes('%%')) {
+          const laneTitle = trimmed.substring(3).trim();
+          if (laneTitle) {
+            existingLanes.push(laneTitle);
+          }
+        }
+      }
+
+      console.log('Found existing lanes:', existingLanes);
+
+      const moveLaneCards = async (targetLaneTitle: string | null) => {
+        try {
+          console.log('moveLaneCards called with targetLaneTitle:', targetLaneTitle);
+
+          // Re-read the file to get fresh content
+          const freshContent = await app.vault.read(targetFile);
+          const freshLines = freshContent.split('\n');
+
+          let hasFrontmatter = false;
+          let frontmatterEnd = -1;
+
+          if (freshLines[0] === '---') {
+            for (let i = 1; i < freshLines.length; i++) {
+              if (freshLines[i] === '---') {
+                frontmatterEnd = i;
+                for (let j = 1; j < i; j++) {
+                  if (freshLines[j].includes('kanban-plugin:')) {
+                    hasFrontmatter = true;
+                    break;
+                  }
+                }
+                break;
+              }
+            }
+          }
+
+          let newContent: string;
+          if (!hasFrontmatter) {
+            if (frontmatterEnd >= 0) {
+              freshLines.splice(frontmatterEnd, 0, 'kanban-plugin: basic');
+              newContent = freshLines.join('\n');
+            } else {
+              newContent = `---\nkanban-plugin: basic\n---\n\n${freshContent}`;
+            }
+          } else {
+            newContent = freshContent;
+          }
+
+          if (targetLaneTitle) {
+            console.log('Merging into existing lane:', targetLaneTitle);
+            // Merge cards into existing list
+            const targetLines = newContent.split('\n');
+            let insertIndex = -1;
+
+            for (let i = 0; i < targetLines.length; i++) {
+              const trimmed = targetLines[i].trim();
+              if (trimmed === `## ${targetLaneTitle}`) {
+                console.log('Found target lane at line:', i);
+                // Find the end of this list (next ## or end of file)
+                insertIndex = i + 1;
+                for (let j = i + 1; j < targetLines.length; j++) {
+                  if (targetLines[j].trim().startsWith('## ')) {
+                    insertIndex = j;
+                    break;
+                  }
+                  insertIndex = j + 1;
+                }
+                console.log('Insert index:', insertIndex);
+                break;
+              }
+            }
+
+            if (insertIndex !== -1) {
+              const cardsMarkdown = lane.children.map((item) => {
+                const checkbox = item.data.metadata.checked ? 'x' : ' ';
+                return `- [${checkbox}] ${item.data.title}`;
+              });
+
+              console.log('Inserting', cardsMarkdown.length, 'cards at index', insertIndex);
+              targetLines.splice(insertIndex, 0, ...cardsMarkdown);
+              newContent = targetLines.join('\n');
+            } else {
+              console.error('Could not find insertion point for lane:', targetLaneTitle);
+            }
+          } else {
+            console.log('Adding as new lane');
+            // Add as new list
+            let laneMarkdown = `\n\n## ${lane.data.title}\n\n`;
+            lane.children.forEach((item) => {
+              const checkbox = item.data.metadata.checked ? 'x' : ' ';
+              laneMarkdown += `- [${checkbox}] ${item.data.title}\n`;
+            });
+            newContent += laneMarkdown;
+          }
+
+          console.log('Writing to target file...');
+          await app.vault.modify(targetFile, newContent);
+          console.log('File written successfully');
+
+          console.log('Deleting lane from current board...');
+          boardModifiers.deleteEntity(path);
+          console.log('Lane deleted from board');
+
+        } catch (error) {
+          console.error('Error in moveLaneCards:', error);
+          throw error;
+        }
+      };
+
+      if (existingLanes.length > 0) {
+        // Show list picker with option to create new list
+        const laneSuggest = new LaneSuggestModal(
+          app,
+          existingLanes,
+          async (selectedLane) => {
+            try {
+              console.log('Lane selected:', selectedLane);
+              if (selectedLane === 'KEEP_SEPARATE') {
+                await moveLaneCards(null);
+              } else {
+                await moveLaneCards(selectedLane);
+              }
+            } catch (error) {
+              console.error('Error in lane selection callback:', error);
+            }
+          },
+          false,
+          true // allowKeepSeparate
+        );
+        laneSuggest.open();
+      } else {
+        // No existing lists, just add it
+        console.log('No existing lanes, adding as new');
+        await moveLaneCards(null);
+      }
+
+    } catch (error) {
+      console.error('Error moving lane to file:', error);
+    }
+  }, false);
+
+  fileSuggest.open();
+}
+
 export interface UseSettingsMenuParams {
   setEditState: Dispatch<StateUpdater<EditState>>;
   path: Path;
@@ -100,6 +265,14 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
           .setIcon('lucide-archive')
           .setTitle(t('Archive cards'))
           .onClick(() => setConfirmAction('archive-items'));
+      })
+      .addItem((item) => {
+        item
+          .setIcon('lucide-folder-output')
+          .setTitle(t('Move list to file...'))
+          .onClick(async () => {
+            await handleMoveLaneToFile(stateManager, boardModifiers, lane, path);
+          });
       })
       .addSeparator()
       .addItem((i) => {
@@ -328,7 +501,7 @@ export function useSettingsMenu({ setEditState, path, lane }: UseSettingsMenuPar
       }
     };
 
-    if (Platform.isPhone) {
+    if (Platform.isMobile) {
       addSortOptions(menu);
     } else {
       menu.addItem((item) => {

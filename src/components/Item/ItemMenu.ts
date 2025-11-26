@@ -19,6 +19,7 @@ import {
   getCalendarDisplayName,
   getFullCalendarDataSync,
 } from './helpers';
+import { FileSuggestModal, LaneSuggestModal } from '../FileSuggest/FileSuggestModal';
 
 /**
  * Ensures a file has a StateManager and returns it
@@ -57,6 +58,112 @@ async function ensureStateManager(app: any, file: any, plugin: any): Promise<Sta
     console.error('Error ensuring state manager for file:', file.path, error);
     return null;
   }
+}
+
+/**
+ * Creates an Inbox list in a file that doesn't have kanban structure
+ */
+async function createInboxListInFile(file: TFile, app: any): Promise<boolean> {
+  try {
+    const content = await app.vault.read(file);
+    const lines = content.split('\n');
+
+    let hasFrontmatter = false;
+    let frontmatterEnd = -1;
+
+    if (lines[0] === '---') {
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i] === '---') {
+          frontmatterEnd = i;
+          for (let j = 1; j < i; j++) {
+            if (lines[j].includes('kanban-plugin:')) {
+              hasFrontmatter = true;
+              break;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    let newContent: string;
+
+    if (!hasFrontmatter) {
+      if (frontmatterEnd >= 0) {
+        lines.splice(frontmatterEnd, 0, 'kanban-plugin: basic');
+        newContent = lines.join('\n');
+      } else {
+        newContent = `---\nkanban-plugin: basic\n---\n\n${content}\n\n`;
+      }
+    } else {
+      newContent = content;
+    }
+
+    if (!newContent.includes('## Inbox')) {
+      newContent += '\n\n## Inbox\n\n';
+    }
+
+    await app.vault.modify(file, newContent);
+    return true;
+  } catch (error) {
+    console.error('Error creating Inbox list in file:', error);
+    return false;
+  }
+}
+
+/**
+ * Handles ad-hoc move of a card to any file
+ */
+async function handleAdHocMove(
+  stateManager: StateManager,
+  cardItem: Item,
+  cardPath: Path
+) {
+  const app = stateManager.app;
+
+  const fileSuggest = new FileSuggestModal(app, async (targetFile) => {
+    try {
+      const content = await app.vault.read(targetFile);
+      const lines = content.split('\n');
+      const lanes: string[] = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('## ') && !trimmed.includes('%%')) {
+          const laneTitle = trimmed.substring(3).trim();
+          if (laneTitle) {
+            lanes.push(laneTitle);
+          }
+        }
+      }
+
+      if (lanes.length > 0) {
+        const laneSuggest = new LaneSuggestModal(app, lanes, async (selectedLane) => {
+          await moveCardToAssociatedFile(stateManager, targetFile, cardItem, cardPath, selectedLane);
+        }, false);
+        laneSuggest.open();
+      } else {
+        const createSuggest = new LaneSuggestModal(
+          app,
+          [],
+          async (selection) => {
+            if (selection === 'CREATE_INBOX') {
+              const created = await createInboxListInFile(targetFile, app);
+              if (created) {
+                await moveCardToAssociatedFile(stateManager, targetFile, cardItem, cardPath, 'Inbox');
+              }
+            }
+          },
+          true
+        );
+        createSuggest.open();
+      }
+    } catch (error) {
+      console.error('Error in ad-hoc move:', error);
+    }
+  }, false);
+
+  fileSuggest.open();
 }
 
 /**
@@ -440,27 +547,14 @@ export function useItemMenu({
 
               // Now create the menu item with the pre-loaded data
               if (fileLanes.length > 0) {
-                mainMenu.addItem((fileMenuItem) => {
-                  const fileSubmenu = (fileMenuItem as any)
-                    .setIcon('lucide-file-text')
-                    .setTitle(`Move to list (${fileBasename})`)
-                    .setSubmenu();
-
-                  console.log(
-                    'Created menu item for:',
-                    fileBasename,
-                    'with',
-                    fileLanes.length,
-                    'lanes'
-                  );
-
-                  // Add lanes to this file's submenu immediately
+                if (Platform.isMobile) {
+                  // For mobile, add lanes directly to main menu (flat structure)
                   fileLanes.forEach((laneTitle) => {
-                    console.log('Adding lane to menu:', laneTitle);
-                    fileSubmenu.addItem((laneItem: any) =>
+                    console.log('Adding flat lane to menu:', `${fileBasename} > ${laneTitle}`);
+                    mainMenu.addItem((laneItem) =>
                       laneItem
-                        .setIcon('lucide-square-kanban')
-                        .setTitle(laneTitle)
+                        .setIcon('lucide-file-text')
+                        .setTitle(`${fileBasename} > ${laneTitle}`)
                         .onClick(async () => {
                           console.log(`Moving card to ${fileBasename}/${laneTitle}`);
                           await moveCardToAssociatedFile(
@@ -473,7 +567,43 @@ export function useItemMenu({
                         })
                     );
                   });
-                });
+                } else {
+                  // For desktop, use submenu structure
+                  mainMenu.addItem((fileMenuItem) => {
+                    const fileSubmenu = (fileMenuItem as any)
+                      .setIcon('lucide-file-text')
+                      .setTitle(`Move to list (${fileBasename})`)
+                      .setSubmenu();
+
+                    console.log(
+                      'Created menu item for:',
+                      fileBasename,
+                      'with',
+                      fileLanes.length,
+                      'lanes'
+                    );
+
+                    // Add lanes to this file's submenu immediately
+                    fileLanes.forEach((laneTitle) => {
+                      console.log('Adding lane to menu:', laneTitle);
+                      fileSubmenu.addItem((laneItem: any) =>
+                        laneItem
+                          .setIcon('lucide-square-kanban')
+                          .setTitle(laneTitle)
+                          .onClick(async () => {
+                            console.log(`Moving card to ${fileBasename}/${laneTitle}`);
+                            await moveCardToAssociatedFile(
+                              stateManager,
+                              file as TFile,
+                              item,
+                              path,
+                              laneTitle
+                            );
+                          })
+                      );
+                    });
+                  });
+                }
               } else {
                 // No lanes found - create disabled menu item
                 console.log('No lanes found in:', fileBasename);
@@ -499,7 +629,7 @@ export function useItemMenu({
       };
 
       // Add the main "Move to list" submenu for current board
-      if (Platform.isPhone) {
+      if (Platform.isMobile) {
         addMoveToOptions(menu);
       } else {
         menu.addItem((item) => {
@@ -511,6 +641,15 @@ export function useItemMenu({
           addMoveToOptions(submenu);
         });
       }
+
+      // Add ad-hoc move option
+      menu.addItem((i) => {
+        i.setIcon('lucide-folder-search')
+          .setTitle(t('Move to any file...'))
+          .onClick(async () => {
+            await handleAdHocMove(stateManager, item, path);
+          });
+      });
 
       // Add separate "Move to list (FileName)" menu items for associated files
       // Load associated files synchronously before showing menu
@@ -625,7 +764,7 @@ export function useItemMenu({
           }
         };
 
-        if (Platform.isPhone) {
+        if (Platform.isMobile) {
           // For mobile, add calendar options directly to main menu
           addCopyToCalendarOptions(menu);
         } else {
