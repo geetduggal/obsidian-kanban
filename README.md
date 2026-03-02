@@ -230,6 +230,17 @@ Cards automatically display calendar colors when they contain hashtags matching 
 
 **Note**: Calendar hashtag tagging is **disabled by default**. Enable it in Board Settings → Integrations → "Add calendar hashtag to card"
 
+## Card IDs
+
+Kanban Plus includes compact card IDs for quick reference and LLM-friendly task lookup.
+
+- Enable from `Card IDs > Enable card IDs`
+- IDs are hidden by default and can be shown without altering card text content
+- `Keep card ID when archiving` controls whether archived cards retain IDs or free them for reuse
+- Random generators avoid ambiguous letters (`I`, `O`)
+
+![Card ID pill UI](docs/images/card-id-pill.png)
+
 ## 🛠️ Advanced Configuration
 
 ### Board Settings Location
