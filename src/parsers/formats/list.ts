@@ -486,6 +486,11 @@ export function newItem(
 
   const ast = parseFragment(stateManager, md);
   const itemData = listItemToItemData(stateManager, md, (ast.children[0] as List).children[0]);
+  const shouldAutoCreateCardId = stateManager.getSetting('auto-create-card-id');
+
+  if (shouldAutoCreateCardId && !itemData.blockId) {
+    itemData.blockId = stateManager.nextCardId();
+  }
 
   itemData.forceEditMode = !!forceEdit;
 

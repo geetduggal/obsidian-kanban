@@ -737,6 +737,7 @@ button.kanban-plugin__new-item-button {
 .kanban-plugin__item-title-wrapper {
   background: var(--background-primary);
   display: flex;
+  align-items: flex-start;
   padding-block: 6px;
   padding-inline: 8px;
   // align-items: center;
@@ -747,6 +748,8 @@ button.kanban-plugin__new-item-button {
 }
 
 .kanban-plugin__item-title {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   line-height: var(--line-height-tight);
   margin-block-start: 1px;
@@ -975,6 +978,11 @@ button.kanban-plugin__new-item-button {
   }
 }
 
+.kanban-plugin__item-postfix-button-wrapper {
+  margin-inline-start: auto;
+  padding-inline-start: 6px;
+}
+
 .kanban-plugin__item-prefix-button-wrapper {
   flex-direction: column;
 }
@@ -993,18 +1001,56 @@ button.kanban-plugin__new-item-button {
   }
 }
 
-button.kanban-plugin__item-postfix-button {
+.kanban-plugin__item-postfix-button {
   visibility: hidden;
   opacity: 0;
   transition: 100ms opacity;
   display: flex;
+  align-items: center;
+  gap: 6px;
   align-self: flex-start;
 }
 
-button.kanban-plugin__item-postfix-button.is-enabled,
-.kanban-plugin__item:hover button.kanban-plugin__item-postfix-button {
+.kanban-plugin__item-postfix-button.is-enabled,
+.kanban-plugin__item:hover .kanban-plugin__item-postfix-button {
   visibility: visible;
   opacity: 1;
+}
+
+.kanban-plugin__item-postfix-button.has-card-id {
+  visibility: visible;
+  opacity: 1;
+  padding-block: 2px !important;
+  padding-inline: 6px 4px !important;
+  margin-inline-end: -2px;
+  border-radius: 999px;
+  border: 1px solid hsla(var(--interactive-accent-hsl), 0.45);
+  background-color: hsla(var(--interactive-accent-hsl), 0.2);
+  color: var(--text-normal);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.1;
+  gap: 2px !important;
+}
+
+.kanban-plugin__item-postfix-id-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  padding-block: 0;
+  padding-inline: 2px 0;
+}
+
+.kanban-plugin__item-postfix-id-value {
+  font-family: var(--font-monospace);
+}
+
+.kanban-plugin__item-postfix-button.has-card-id.is-large .kanban-plugin__item-postfix-id-text {
+  font-size: 0.95rem;
+}
+
+.kanban-plugin__item-postfix-button.has-card-id > .kanban-plugin__icon {
+  margin-inline-start: 2px !important;
 }
 
 .kanban-plugin__item-settings-actions {
