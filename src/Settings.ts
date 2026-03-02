@@ -95,6 +95,13 @@ export interface KanbanSettings {
   'add-calendar-hashtag'?: boolean;
   'place-settings-at-beginning'?: boolean;
   'associated-files'?: string[];
+  'show-card-id'?: boolean;
+  'auto-create-card-id'?: boolean;
+  'keep-card-id-on-archive'?: boolean;
+  'card-id-prefix'?: string;
+  'card-id-generation'?: 'sequential-number' | 'sequential-alpha' | 'random-alpha' | 'random-alphanumeric';
+  'card-id-length'?: number;
+  'card-id-size'?: 'normal' | 'large';
 }
 
 export interface KanbanViewSettings {
@@ -147,6 +154,13 @@ export const settingKeyLookup: Set<keyof KanbanSettings> = new Set([
   'add-calendar-hashtag',
   'place-settings-at-beginning',
   'associated-files',
+  'show-card-id',
+  'auto-create-card-id',
+  'keep-card-id-on-archive',
+  'card-id-prefix',
+  'card-id-generation',
+  'card-id-length',
+  'card-id-size',
 ]);
 
 export type SettingRetriever = <K extends keyof KanbanSettings>(
@@ -1259,6 +1273,196 @@ export class SettingsManager {
               });
           });
       });
+
+    contentEl.createEl('br');
+    contentEl.createEl('h4', { text: t('Card IDs') });
+    const [cardIdsEnabledValue, cardIdsEnabledGlobalValue] = this.getSetting('show-card-id', local);
+    const cardIdsEnabled = (cardIdsEnabledValue ?? cardIdsEnabledGlobalValue ?? false) as boolean;
+    let cardIdAdvancedEl: HTMLDivElement;
+
+    const enableCardIdsSetting = new Setting(contentEl)
+      .setName(t('Enable card IDs'))
+      .setDesc(
+        t(
+          'Show card IDs on cards. Turning this on also assigns IDs to any cards missing one. Turn off to hide IDs without deleting them. Use the command palette action to regenerate IDs.'
+        )
+      )
+      .then((setting) => {
+        let toggleComponent: ToggleComponent;
+
+        setting
+          .addToggle((toggle) => {
+            toggleComponent = toggle;
+            toggle.setValue(cardIdsEnabled);
+            toggle.onChange((newValue) => {
+              cardIdAdvancedEl.style.display = newValue ? '' : 'none';
+              this.applySettingsUpdate({
+                'show-card-id': {
+                  $set: newValue,
+                },
+                'auto-create-card-id': {
+                  $set: newValue,
+                },
+              });
+
+              if (newValue) {
+                const file = this.app.workspace.getActiveFile();
+                if (!file) return;
+                this.plugin.stateManagers.get(file)?.assignMissingCardIds();
+              }
+            });
+          })
+          .addExtraButton((b) => {
+            b.setIcon('lucide-rotate-ccw')
+              .setTooltip(t('Reset to default'))
+              .onClick(() => {
+                const [, globalValue] = this.getSetting('show-card-id', local);
+                const nextValue = (globalValue as boolean) ?? false;
+                toggleComponent.setValue(nextValue);
+                cardIdAdvancedEl.style.display = nextValue ? '' : 'none';
+
+                this.applySettingsUpdate({
+                  $unset: ['show-card-id', 'auto-create-card-id'],
+                });
+              });
+          });
+      });
+
+    cardIdAdvancedEl = contentEl.createDiv();
+    enableCardIdsSetting.settingEl.insertAdjacentElement('afterend', cardIdAdvancedEl);
+    cardIdAdvancedEl.style.display = cardIdsEnabled ? '' : 'none';
+
+    let cardIdGenerationValue = (
+      this.getSetting('card-id-generation', local)[0] ??
+      this.getSetting('card-id-generation', local)[1] ??
+      'random-alpha'
+    ) as string;
+    let cardIdLengthSetting: Setting;
+
+    const syncCardIdLengthVisibility = () => {
+      const showLength =
+        cardIdGenerationValue === 'random-alpha' || cardIdGenerationValue === 'random-alphanumeric';
+      if (cardIdLengthSetting?.settingEl) {
+        cardIdLengthSetting.settingEl.style.display = showLength ? '' : 'none';
+      }
+    };
+
+    new Setting(cardIdAdvancedEl)
+      .setName(t('Keep card ID when archiving'))
+      .setDesc(t('If disabled, archived cards drop their IDs so those short IDs can be reused.'))
+      .then((setting) => {
+        let toggleComponent: ToggleComponent;
+
+        setting
+          .addToggle((toggle) => {
+            toggleComponent = toggle;
+
+            const [value, globalValue] = this.getSetting('keep-card-id-on-archive', local);
+
+            if (value !== undefined) {
+              toggle.setValue(value as boolean);
+            } else if (globalValue !== undefined) {
+              toggle.setValue(globalValue as boolean);
+            } else {
+              toggle.setValue(false);
+            }
+
+            toggle.onChange((newValue) => {
+              this.applySettingsUpdate({
+                'keep-card-id-on-archive': {
+                  $set: newValue,
+                },
+              });
+            });
+          })
+          .addExtraButton((b) => {
+            b.setIcon('lucide-rotate-ccw')
+              .setTooltip(t('Reset to default'))
+              .onClick(() => {
+                const [, globalValue] = this.getSetting('keep-card-id-on-archive', local);
+                toggleComponent.setValue((globalValue as boolean) ?? false);
+
+                this.applySettingsUpdate({
+                  $unset: ['keep-card-id-on-archive'],
+                });
+              });
+          });
+      });
+
+    new Setting(cardIdAdvancedEl)
+      .setName(t('Card ID generation'))
+      .setDesc(t('Choose how new card IDs are generated.'))
+      .addDropdown((dropdown) => {
+        dropdown.addOption('sequential-alpha', t('Sequential letters'));
+        dropdown.addOption('sequential-number', t('Sequential numbers'));
+        dropdown.addOption('random-alpha', t('Random letters (recommended)'));
+        dropdown.addOption('random-alphanumeric', t('Random alphanumeric'));
+
+        const [value, globalValue] = this.getSetting('card-id-generation', local);
+        cardIdGenerationValue = (value as string) || (globalValue as string) || 'random-alpha';
+        dropdown.setValue(cardIdGenerationValue);
+        syncCardIdLengthVisibility();
+
+        dropdown.onChange((newValue) => {
+          cardIdGenerationValue = newValue;
+          syncCardIdLengthVisibility();
+          this.applySettingsUpdate({
+            'card-id-generation': {
+              $set: newValue as
+                | 'sequential-number'
+                | 'sequential-alpha'
+                | 'random-alpha'
+                | 'random-alphanumeric',
+            },
+          });
+        });
+      });
+
+    cardIdLengthSetting = new Setting(cardIdAdvancedEl)
+      .setName(t('Card ID length'))
+      .setDesc(t('Minimum length for random generation modes; increases automatically when needed.'))
+      .addText((text) => {
+        const [value, globalValue] = this.getSetting('card-id-length', local);
+        const current = (value ?? globalValue ?? 2) as number;
+
+        text.setValue(String(current));
+        text.setPlaceholder('2');
+        text.onChange((newValue) => {
+          const parsed = parseInt(newValue, 10);
+          if (!Number.isNaN(parsed)) {
+            const bounded = Math.max(2, Math.min(8, parsed));
+            this.applySettingsUpdate({
+              'card-id-length': {
+                $set: bounded,
+              },
+            });
+          } else {
+            this.applySettingsUpdate({
+              $unset: ['card-id-length'],
+            });
+          }
+        });
+      });
+
+    new Setting(cardIdAdvancedEl)
+      .setName(t('Card ID size'))
+      .setDesc(t('Increase card ID prominence for faster scanning.'))
+      .addDropdown((dropdown) => {
+        dropdown.addOption('normal', t('Normal'));
+        dropdown.addOption('large', t('Large'));
+
+        const [value, globalValue] = this.getSetting('card-id-size', local);
+        dropdown.setValue((value as string) || (globalValue as string) || 'large');
+        dropdown.onChange((newValue) => {
+          this.applySettingsUpdate({
+            'card-id-size': {
+              $set: newValue as 'normal' | 'large',
+            },
+          });
+        });
+      });
+
+    syncCardIdLengthVisibility();
 
     contentEl.createEl('br');
     contentEl.createEl('h4', { text: t('Linked Page Metadata') });

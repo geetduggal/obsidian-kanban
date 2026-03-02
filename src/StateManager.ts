@@ -6,10 +6,20 @@ import { KanbanView } from './KanbanView';
 import { KanbanSettings, SettingRetrievers } from './Settings';
 import { getDefaultDateFormat, getDefaultTimeFormat } from './components/helpers';
 import { Board, BoardTemplate, Item } from './components/types';
+import {
+  CardIdGenerationMode,
+  collectCardBlockIds,
+  generateCardId,
+  sanitizeCardIdPrefix,
+} from './helpers/cardId';
 import { ListFormat } from './parsers/List';
 import { BaseFormat, frontmatterKey, shouldRefreshBoard } from './parsers/common';
 import { getTaskStatusDone } from './parsers/helpers/inlineMetadata';
-import { defaultDateTrigger, defaultMetadataPosition, defaultTimeTrigger } from './settingHelpers';
+import {
+  defaultDateTrigger,
+  defaultMetadataPosition,
+  defaultTimeTrigger,
+} from './settingHelpers';
 
 export class StateManager {
   onEmpty: () => void;
@@ -26,6 +36,8 @@ export class StateManager {
   file: TFile;
 
   parser: BaseFormat;
+  generatedCardIds: Set<string> = new Set();
+  isEnsuringCardIds = false;
 
   constructor(
     app: App,
@@ -122,6 +134,7 @@ export class StateManager {
       try {
         this.compileSettings();
         this.state = this.parser.reparseBoard();
+        this.ensureMissingCardIds();
 
         this.stateReceivers.forEach((receiver) => receiver(this.state));
         this.settingsNotifiers.forEach((notifiers) => {
@@ -259,6 +272,15 @@ export class StateManager {
       'date-colors': this.getSettingRaw('date-colors', suppliedSettings) ?? [],
       'tag-action': this.getSettingRaw('tag-action', suppliedSettings) ?? 'obsidian',
       'associated-files': this.getSettingRaw('associated-files', suppliedSettings) ?? [],
+      'show-card-id': this.getSettingRaw('show-card-id', suppliedSettings) ?? false,
+      'auto-create-card-id': this.getSettingRaw('auto-create-card-id', suppliedSettings) ?? false,
+      'keep-card-id-on-archive':
+        this.getSettingRaw('keep-card-id-on-archive', suppliedSettings) ?? false,
+      'card-id-prefix': this.getSettingRaw('card-id-prefix', suppliedSettings) || '',
+      'card-id-generation':
+        this.getSettingRaw('card-id-generation', suppliedSettings) || 'random-alpha',
+      'card-id-length': this.getSettingRaw('card-id-length', suppliedSettings) ?? 2,
+      'card-id-size': this.getSettingRaw('card-id-size', suppliedSettings) || 'large',
     };
   }
 
@@ -357,6 +379,7 @@ export class StateManager {
   async reparseBoardFromMd() {
     try {
       this.setState(this.getParsedBoard(this.getAView().data), false);
+      this.ensureMissingCardIds();
     } catch (e) {
       console.error(e);
       this.setError(e);
@@ -368,9 +391,21 @@ export class StateManager {
 
     const archived: Item[] = [];
     const shouldAppendArchiveDate = !!this.getSetting('archive-with-date');
+    const shouldKeepCardIdOnArchive = this.getSetting('keep-card-id-on-archive') === true;
     const archiveDateSeparator = this.getSetting('archive-date-separator');
     const archiveDateFormat = this.getSetting('archive-date-format');
     const archiveDateAfterTitle = this.getSetting('append-archive-date');
+
+    const normalizeArchivedItem = (item: Item): Item => {
+      if (shouldKeepCardIdOnArchive || !item.data.blockId) return item;
+      return update(item, {
+        data: {
+          blockId: {
+            $set: undefined,
+          },
+        },
+      });
+    };
 
     const appendArchiveDate = (item: Item) => {
       const newTitle = [moment().format(archiveDateFormat)];
@@ -383,7 +418,7 @@ export class StateManager {
 
       const titleRaw = newTitle.join(' ');
 
-      return this.parser.updateItemContent(item, titleRaw);
+      return this.parser.updateItemContent(normalizeArchivedItem(item), titleRaw);
     };
 
     const lanes = board.children.map((lane) => {
@@ -392,7 +427,7 @@ export class StateManager {
           $set: lane.children.filter((item) => {
             const isComplete = item.data.checked && item.data.checkChar === getTaskStatusDone();
             if (lane.data.shouldMarkItemsComplete || isComplete) {
-              archived.push(item);
+              archived.push(normalizeArchivedItem(item));
             }
 
             return !isComplete && !lane.data.shouldMarkItemsComplete;
@@ -427,5 +462,136 @@ export class StateManager {
 
   updateItemContent(item: Item, content: string) {
     return this.parser.updateItemContent(item, content);
+  }
+
+  ensureMissingCardIds() {
+    if (this.isEnsuringCardIds) return;
+    if (!this.getSetting('auto-create-card-id')) return;
+
+    this.isEnsuringCardIds = true;
+    try {
+      this.assignMissingCardIds();
+    } finally {
+      this.isEnsuringCardIds = false;
+    }
+  }
+
+  nextCardId(existing?: Set<string>) {
+    const used = new Set<string>(existing || []);
+    const includeArchive = this.getSetting('keep-card-id-on-archive') === true;
+    collectCardBlockIds(this.state, includeArchive).forEach((id) => used.add(id));
+    this.generatedCardIds.forEach((id) => used.add(id));
+
+    const prefix = sanitizeCardIdPrefix((this.getSetting('card-id-prefix') as string) || '');
+    const mode = (this.getSetting('card-id-generation') || 'random-alpha') as CardIdGenerationMode;
+    const length = Number(this.getSetting('card-id-length') || 2);
+    const id = generateCardId(mode, used, { prefix, length });
+    this.generatedCardIds.add(id);
+    return id;
+  }
+
+  assignMissingCardIds() {
+    const board = this.state;
+    if (!board) return 0;
+
+    const includeArchive = this.getSetting('keep-card-id-on-archive') === true;
+    const used = collectCardBlockIds(board, includeArchive);
+    let changed = 0;
+
+    const assignItem = (item: Item): Item => {
+      if (item.data.blockId) return item;
+
+      const blockId = this.nextCardId(used);
+      used.add(blockId);
+      changed += 1;
+
+      return update(item, {
+        data: {
+          blockId: {
+            $set: blockId,
+          },
+        },
+      });
+    };
+
+    const lanes = board.children.map((lane) =>
+      update(lane, {
+        children: {
+          $set: lane.children.map(assignItem),
+        },
+      })
+    );
+
+    const archive = includeArchive ? board.data.archive.map(assignItem) : board.data.archive;
+
+    if (changed > 0) {
+      this.setState(
+        update(board, {
+          children: {
+            $set: lanes,
+          },
+          data: {
+            archive: {
+              $set: archive,
+            },
+          },
+        })
+      );
+    }
+
+    return changed;
+  }
+
+  regenerateCardIds() {
+    const board = this.state;
+    if (!board) return 0;
+
+    const includeArchive = this.getSetting('keep-card-id-on-archive') === true;
+    const used = new Set<string>();
+    let changed = 0;
+
+    const regenItem = (item: Item): Item => {
+      const blockId = this.nextCardId(used);
+      used.add(blockId);
+
+      if (item.data.blockId !== blockId) {
+        changed += 1;
+      }
+
+      return update(item, {
+        data: {
+          blockId: {
+            $set: blockId,
+          },
+        },
+      });
+    };
+
+    const lanes = board.children.map((lane) =>
+      update(lane, {
+        children: {
+          $set: lane.children.map(regenItem),
+        },
+      })
+    );
+
+    const archive = includeArchive ? board.data.archive.map(regenItem) : board.data.archive;
+
+    if (changed > 0) {
+      this.setState(
+        update(board, {
+          children: {
+            $set: lanes,
+          },
+          data: {
+            archive: {
+              $set: archive,
+            },
+          },
+        })
+      );
+    }
+
+    return changed;
   }
 }

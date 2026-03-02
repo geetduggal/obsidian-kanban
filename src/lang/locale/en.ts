@@ -5,6 +5,9 @@ const en = {
   'Open as kanban board': 'Open as kanban board',
   'Create new board': 'Create new board',
   'Archive completed cards in active board': 'Archive completed cards in active board',
+  'Assign IDs to cards missing IDs in active board':
+    'Assign IDs to cards missing IDs in active board',
+  'Regenerate all card IDs in active board': 'Regenerate all card IDs in active board',
   'Error: current file is not a Kanban board': 'Error: current file is not a Kanban board',
   'Convert empty note to Kanban': 'Convert empty note to Kanban',
   'Error: cannot create Kanban, the current note is not empty':
@@ -107,6 +110,39 @@ const en = {
   'Move task data to card footer': 'Move task data to card footer',
   "When toggled, task data (from the Tasks plugin) will be displayed in the card's footer instead of the card's body.":
     "When toggled, task data (from the Tasks plugin) will be displayed in the card's footer instead of the card's body.",
+  'Card IDs': 'Card IDs',
+  'Enable card IDs': 'Enable card IDs',
+  'Show card IDs on cards. Turning this on also assigns IDs to any cards missing one. Turn off to hide IDs without deleting them. Use the command palette action to regenerate IDs.':
+    'Show card IDs on cards. Turning this on also assigns IDs to any cards missing one. Turn off to hide IDs without deleting them. Use the command palette action to regenerate IDs.',
+  'Show card ID in footer': 'Show card ID in footer',
+  'Display each card block ID in the metadata footer.':
+    'Display each card block ID in the metadata footer.',
+  'Auto-create card ID for new cards': 'Auto-create card ID for new cards',
+  'Automatically assign a block ID to new cards when one is missing.':
+    'Automatically assign a block ID to new cards when one is missing.',
+  'Keep card ID when archiving': 'Keep card ID when archiving',
+  'If disabled, archived cards drop their IDs so those short IDs can be reused.':
+    'If disabled, archived cards drop their IDs so those short IDs can be reused.',
+  'Card ID generation': 'Card ID generation',
+  'Choose how new card IDs are generated.': 'Choose how new card IDs are generated.',
+  'Sequential letters (recommended)': 'Sequential letters (recommended)',
+  'Sequential letters': 'Sequential letters',
+  'Sequential numbers': 'Sequential numbers',
+  'Random letters': 'Random letters',
+  'Random letters (recommended)': 'Random letters (recommended)',
+  'Random alphanumeric': 'Random alphanumeric',
+  'Random alphanumeric (recommended)': 'Random alphanumeric (recommended)',
+  'Card ID length': 'Card ID length',
+  'Used by random generation modes only.': 'Used by random generation modes only.',
+  'Minimum length for random generation modes; increases automatically when needed.':
+    'Minimum length for random generation modes; increases automatically when needed.',
+  'Card ID size': 'Card ID size',
+  'Increase card ID prominence for faster scanning.':
+    'Increase card ID prominence for faster scanning.',
+  Normal: 'Normal',
+  Large: 'Large',
+  'Show ID label': 'Show ID label',
+  'Display "ID:" before each card ID.': 'Display "ID:" before each card ID.',
   'Inline metadata position': 'Inline metadata position',
   'Controls where the inline metadata (from the Dataview plugin) will be displayed.':
     'Controls where the inline metadata (from the Dataview plugin) will be displayed.',

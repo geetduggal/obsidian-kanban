@@ -37,6 +37,20 @@ export interface BoardModifiers {
 }
 
 export function getBoardModifiers(view: KanbanView, stateManager: StateManager): BoardModifiers {
+  const normalizeArchivedItem = (item: Item): Item => {
+    if (stateManager.getSetting('keep-card-id-on-archive') === true || !item.data.blockId) {
+      return item;
+    }
+
+    return update(item, {
+      data: {
+        blockId: {
+          $set: undefined,
+        },
+      },
+    });
+  };
+
   const appendArchiveDate = (item: Item) => {
     const archiveDateFormat = stateManager.getSetting('archive-date-format');
     const archiveDateSeparator = stateManager.getSetting('archive-date-separator');
@@ -51,7 +65,7 @@ export function getBoardModifiers(view: KanbanView, stateManager: StateManager):
     if (archiveDateAfterTitle) newTitle.reverse();
 
     const titleRaw = newTitle.join(' ');
-    return stateManager.updateItemContent(item, titleRaw);
+    return stateManager.updateItemContent(normalizeArchivedItem(item), titleRaw);
   };
 
   return {
@@ -156,7 +170,7 @@ export function getBoardModifiers(view: KanbanView, stateManager: StateManager):
               archive: {
                 $unshift: stateManager.getSetting('archive-with-date')
                   ? items.map(appendArchiveDate)
-                  : items,
+                  : items.map(normalizeArchivedItem),
               },
             },
           });
@@ -184,7 +198,7 @@ export function getBoardModifiers(view: KanbanView, stateManager: StateManager):
                 archive: {
                   $unshift: stateManager.getSetting('archive-with-date')
                     ? items.map(appendArchiveDate)
-                    : items,
+                    : items.map(normalizeArchivedItem),
                 },
               },
             }
@@ -238,7 +252,9 @@ export function getBoardModifiers(view: KanbanView, stateManager: StateManager):
             data: {
               archive: {
                 $push: [
-                  stateManager.getSetting('archive-with-date') ? appendArchiveDate(item) : item,
+                  stateManager.getSetting('archive-with-date')
+                    ? appendArchiveDate(item)
+                    : normalizeArchivedItem(item),
                 ],
               },
             },
